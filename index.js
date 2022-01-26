@@ -41,11 +41,11 @@ app.use(express.json())
 app.use(cors())
 
 // get a list of manga based on tags
-app.post('/manga/tags', async function(req, res) {
-    let { totalRounds, tags } = req.body
-    console.log(`[POST /manga/tags] totalRounds: ${totalRounds} | tags: ${tags.join(', ')}`)
+app.get('/manga/tags', async function(req, res) {
+    let { totalRounds, tags } = req.query
+    console.log(`[GET /manga/tags] totalRounds: ${totalRounds} | tags: ${tags ? tags.join(', ') : "None"}`)
     
-    let filteredMangas = getFilteredMangasByTags(tags)
+    let filteredMangas = tags ? getFilteredMangasByTags(tags) : mangas
     if (Object.keys(filteredMangas).length === 0) {
         res.status(400).json({
             'result': 'error',
@@ -106,16 +106,16 @@ app.post('/manga/tags', async function(req, res) {
 })
 
 // get a list of manga based on MDLists
-app.post('/manga/lists', async function(req, res) {
-    let { totalRounds, lists } = req.body
-    console.log(`[POST /manga/lists] totalRounds: ${totalRounds} | lists: ${lists.join(', ')}`)
-
-    if (lists.length === 0) {
+app.get('/manga/lists', async function(req, res) {
+    let { totalRounds, lists } = req.query
+    
+    if (!lists) {
         res.status(400).json({
             'result': 'error',
             'mangas': []
         })
     } else {
+        console.log(`[GET /manga/lists] totalRounds: ${totalRounds} | lists: ${lists.join(', ')}`)
         let filteredMangaRefs = await getFilteredMangasByLists(lists)
         if (filteredMangaRefs.length === 0) {
             res.status(400).json({
@@ -206,11 +206,11 @@ app.get('/titles', function(req, res) { // called when using autocomplete
     res.status(200).send(Array.from(titles).sort())
 })
 
-app.post('/titles/tags', function(req, res) { // called when using multiple choice and tags
-    let { tags } = req.body
-    console.log(`[POST /titles] tags: ${tags.join(', ')}`)
+app.get('/titles/tags', function(req, res) { // called when using multiple choice and tags
+    let { tags } = req.query
+    console.log(`[GET /titles] tags: ${tags ? tags.join(', ') : "None"}`)
     let titles = new Set()
-    let filteredMangas = getFilteredMangasByTags(tags)
+    let filteredMangas = tags ? getFilteredMangasByTags(tags) : mangas
     for (var key in filteredMangas) {
         m = filteredMangas[key]
         m.titles.forEach(t => {
@@ -220,29 +220,41 @@ app.post('/titles/tags', function(req, res) { // called when using multiple choi
     res.status(200).send(Array.from(titles))
 })
 
-app.post('/titles/lists', async function(req, res) { // called when using multiple choice and mdlists
-    let { lists } = req.body
-    console.log(`[POST /titles] lists: ${lists.join(', ')}`)
-    let listTitles = []
-    let refs = await getFilteredMangasByLists(lists)
-    for (let ref of refs) {
-        let mangaResponse = await fetch(`https://api.mangadex.org/manga/${ref}`)
-        let mangaData = await mangaResponse.json()
-        let titles = []
-        for (const t in mangaData.data.attributes.title) {
-            titles.push(mangaData.data.attributes.title[t])
+app.get('/titles/lists', async function(req, res) { // called when using multiple choice and mdlists
+    let { lists } = req.query
+    if (!lists) {
+        let titles = new Set()
+        for (var key in mangas) {
+            m = mangas[key]
+            m.titles.forEach(t => {
+                titles.add(t.trim())
+            })
         }
-        let altTitles = mangaData.data.attributes.altTitles.filter(t => Object.keys(t)[0] === 'en').map(t => Object.values(t)[0])
-        titles = titles.concat(altTitles.filter(t => /^[a-zA-Z0-9 !#$%&'()*+,-./:;<=>?@\[\]^_`|~¥°±²³½“”†•…₂←↑→↓⇆∀∅∇√△○●◯★☆♀♂♠♡♥♪♭❤￮]+$/.test(t)))
-        listTitles = listTitles.concat(titles)
+        res.status(200).send(Array.from(titles))
+    } else {
+        console.log(`[GET /titles] lists: ${lists.join(', ')}`)
+        let listTitles = []
+        let refs = await getFilteredMangasByLists(lists)
+        for (let ref of refs) {
+            let mangaResponse = await fetch(`https://api.mangadex.org/manga/${ref}`)
+            let mangaData = await mangaResponse.json()
+            let titles = []
+            for (const t in mangaData.data.attributes.title) {
+                titles.push(mangaData.data.attributes.title[t])
+            }
+            let altTitles = mangaData.data.attributes.altTitles.filter(t => Object.keys(t)[0] === 'en').map(t => Object.values(t)[0])
+            titles = titles.concat(altTitles.filter(t => /^[a-zA-Z0-9 !#$%&'()*+,-./:;<=>?@\[\]^_`|~¥°±²³½“”†•…₂←↑→↓⇆∀∅∇√△○●◯★☆♀♂♠♡♥♪♭❤￮]+$/.test(t)))
+            listTitles = listTitles.concat(titles)
+        }
+    
+        res.status(200).send(listTitles)
     }
 
-    res.status(200).send(listTitles)
 })
 
 app.get('/pagelink', async function(req, res) {
-    console.log('[GET /pagelink]')
     let { chapterId } = req.query
+    console.log(`[GET /pagelink] ${chapterId}`)
     let athomeUrlResponse = await fetch(`https://api.mangadex.org/at-home/server/${chapterId}`, {
         mode: 'no-cors'
     })
