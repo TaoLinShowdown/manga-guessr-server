@@ -235,18 +235,24 @@ app.get('/titles/lists', async function(req, res) { // called when using multipl
         console.log(`[GET /titles] lists: ${lists.join(', ')}`)
         let listTitles = []
         let refs = await getFilteredMangasByLists(lists)
-        for (let ref of refs) {
-            let mangaResponse = await fetch(`https://api.mangadex.org/manga/${ref}`)
+        let i, temp, chunk = 100
+        for (i = 0; i < refs.length; i += chunk) {
+            temp = refs.slice(i, i + chunk)
+            let idParams = '&ids[]=' + temp.join('&ids[]=')
+            let mangaResponse = await fetch(`https://api.mangadex.org/manga?limit=100${idParams}`)
             let mangaData = await mangaResponse.json()
-            let titles = []
-            for (const t in mangaData.data.attributes.title) {
-                titles.push(mangaData.data.attributes.title[t])
+            for (let m of mangaData.data) {
+                let titles = []
+                titles.push(Object.values(m.attributes.title)[0])
+                let altTitles = m.attributes.altTitles
+                    .filter(t => Object.keys(t)[0] === 'en') // only want english titles
+                    .map(t => Object.values(t)[0])           // get the values
+                    .slice(0, 2)                             // only first two values
+                    .filter(t => /^[a-zA-Z0-9 !#$%&'()*+,-./:;<=>?@\[\]^_`|~¥°±²³½“”†•…₂←↑→↓⇆∀∅∇√△○●◯★☆♀♂♠♡♥♪♭❤￮]+$/.test(t)) // if it got funny letters not in this list, don't include
+                titles = titles.concat(altTitles)
+                listTitles = listTitles.concat(titles)
             }
-            let altTitles = mangaData.data.attributes.altTitles.filter(t => Object.keys(t)[0] === 'en').map(t => Object.values(t)[0])
-            titles = titles.concat(altTitles.filter(t => /^[a-zA-Z0-9 !#$%&'()*+,-./:;<=>?@\[\]^_`|~¥°±²³½“”†•…₂←↑→↓⇆∀∅∇√△○●◯★☆♀♂♠♡♥♪♭❤￮]+$/.test(t)))
-            listTitles = listTitles.concat(titles)
         }
-    
         res.status(200).send(listTitles)
     }
 
