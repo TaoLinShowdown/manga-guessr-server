@@ -55,8 +55,8 @@ exports.getTitlesByIds = async (mangaIds) => {
     }
 }
 
-exports.getAllTitlesByIds = async (mangaIds) => {
-    let listTitles = {}
+exports.getAllTitlesByIds = async (mangaIds, all) => {
+    let listTitles = []
     let i, temp, chunk = 100
     for (i = 0; i < mangaIds.length; i += chunk) {
         temp = mangaIds.slice(i, i + chunk)
@@ -64,14 +64,15 @@ exports.getAllTitlesByIds = async (mangaIds) => {
         let mangaResponse = await fetch(`https://api.mangadex.org/manga?limit=100${idParams}`)
         let mangaData = await mangaResponse.json()
         for (let m of mangaData.data) {
-            let titles = []
-            titles.push(Object.values(m.attributes.title)[0])
-            let altTitles = m.attributes.altTitles
-                .map(t => Object.values(t)[0])           // get the values
-                .filter(t => /^[a-zA-Z0-9 !#$%&'()*+,-./:;<=>?@\[\]^_`|~¥°±²³½“”†•…₂←↑→↓⇆∀∅∇√△○●◯★☆♀♂♠♡♥♪♭❤￮]+$/.test(t)) // if it got funny letters not in this list, don't include
-                .slice(0, 2)                             // only first 3 values
-            titles = titles.concat(altTitles)
-            listTitles[m.id] = titles
+            let titles = Object.values(m.attributes.title)
+            if (all) {
+                let altTitles = m.attributes.altTitles
+                    .map(t => Object.values(t)[0])           // get the values
+                    .filter(t => /^[a-zA-Z0-9 !#$%&'()*+,-./:;<=>?@\[\]^_`|~¥°±²³½“”†•…₂←↑→↓⇆∀∅∇√△○●◯★☆♀♂♠♡♥♪♭❤￮]+$/.test(t)) // if it got funny letters not in this list, don't include
+                    .slice(0, 2)                             // only first 3 values
+                titles = titles.concat(altTitles)
+            }
+            listTitles = listTitles.concat(titles)
         }
     }
     return listTitles

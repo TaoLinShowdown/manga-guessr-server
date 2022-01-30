@@ -32,9 +32,9 @@ exports.getMangaByTags = async (req, res) => {
         rating = rating ? rating : 0
         if (tags) {
             let tagsQuery = tags.filter(t => validTags.includes(t)).map(t => t.replace(/'/g, "''")).join(',')
-            query = `SELECT id, validChapters FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE '{${tagsQuery}}'::tag[] && tags.tags AND year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
+            query = `SELECT id, validChapters, title, altTitles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE '{${tagsQuery}}'::tag[] && tags.tags AND year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
         } else {
-            query = `SELECT id, validChapters FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
+            query = `SELECT id, validChapters, title, altTitles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
         }
         let queryResult = await pool.query(query)
         if (queryResult.rows.length === 0) {
@@ -43,15 +43,12 @@ exports.getMangaByTags = async (req, res) => {
                 'mangas': []
             })
         } else {
-            let mangaIds = queryResult.rows.map(q => `'${q.id}'`)
-            let titleQuery = `SELECT * FROM titles WHERE manga_id in (${mangaIds.join(',')})`
-            let titleQueryResult = await pool.query(titleQuery)
             res.status(200).json({
                 'result': 'ok',
                 'mangas': queryResult.rows.map((q) => ({
                     'id': q.id,
                     'chapterId': q.validchapters[getRandomInt(0, q.validchapters.length)],
-                    'titles': titleQueryResult.rows.filter(t => t.manga_id === q.id).map(t => t.title)
+                    'titles': [ q.title, ...q.alttitles ]
                 }))
             })
         }

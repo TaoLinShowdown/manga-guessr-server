@@ -30,13 +30,15 @@ function groupTitles (titles) {
 exports.getTitles = async (req, res) => {
     console.log('[GET /titles]')
     try {
-        let query = 'SELECT title FROM titles ORDER BY title'
+        let query = 'SELECT title, altTitles FROM mangas'
         let queryResult = await pool.query(query)
+        let titles = queryResult.rows.reduce((list, q) => list.concat([ q.title, ...q.alttitles ]), []).sort()
         res.status(200).json({
             'result': 'ok',
-            'titles': queryResult.rows.map(t => t.title)
+            'titles': titles
         })
     } catch (e) {
+        console.error(e)
         res.status(500).json({
             'result': 'error',
             'titles': []
@@ -50,14 +52,14 @@ exports.getTitlesByTags = async (req, res) => {
     try {
         let query
         if (tags) {
-            query = `SELECT titles.manga_id as id, title FROM titles JOIN tags ON titles.manga_id = tags.manga_id WHERE '{${tags.filter(t => validTags.includes(t)).map(t => t.replace(/'/g, "''")).join(',')}}'::tag[] && tags.tags ORDER BY title`
+            query = `SELECT title FROM mangas JOIN tags ON id = tags.manga_id WHERE '{${tags.filter(t => validTags.includes(t)).map(t => t.replace(/'/g, "''")).join(',')}}'::tag[] && tags.tags`
         } else {
-            query = 'SELECT manga_id as id, title FROM titles ORDER BY title'
+            query = 'SELECT title FROM mangas'
         }
         let queryResult = await pool.query(query)
         res.status(200).json({
             'result': 'ok',
-            'titles': groupTitles(queryResult.rows)
+            'titles': queryResult.rows.map(q => q.title)
         })
     } catch (e) {
         res.status(500).json({
@@ -74,7 +76,7 @@ exports.getTitlesByLists = async (req, res) => {
             let queryResult = await pool.query(query)
             res.status(200).json({
                 'result': 'ok',
-                'titles': groupTitles(queryResult.rows)
+                'titles': queryResult.rows.map(q => q.title)
             })
         } catch (e) {
             res.status(500).json({
@@ -84,19 +86,20 @@ exports.getTitlesByLists = async (req, res) => {
         }
     }
 
-    let { lists } = req.query
+    let { lists, all } = req.query
     console.log(`[GET /titles/lists] lists: ${!lists ? 'None' : lists.join(', ')}`)
     if (!lists) {
         sendAllTitles()
     } else {
         try {
             let ids = await getMangaIdsByLists(lists)
-            let titles = await getAllTitlesByIds(ids)
+            let titles = await getAllTitlesByIds(ids, all === '1')
             res.status(200).json({
                 'result': 'ok',
                 'titles': titles
             })
-        } catch {
+        } catch(e) {
+            console.error(e)
             sendAllTitles()
         }
     }
