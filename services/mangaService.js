@@ -1,3 +1,4 @@
+const { getMangaIdsByLists, getRandomChapter, getTitlesByIds } = require('./mdService')
 const { Pool } = require('pg')
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -26,9 +27,9 @@ exports.getMangaByTags = async (req, res) => {
     console.log(`[GET /manga/tags] total rounds: ${totalRounds} | tags: ${!tags ? 'None' : tags.join(', ')}`)
     try {
         let query
-        year = year || 0
-        follows = follows || 0
-        rating = rating || 0
+        year = year ? year : 0
+        follows = follows ? follows : 0
+        rating = rating ? rating : 0
         if (tags) {
             let tagsQuery = tags.filter(t => validTags.includes(t)).map(t => t.replace(/'/g, "''")).join(',')
             query = `SELECT id, validChapters FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE '{${tagsQuery}}'::tag[] && tags.tags AND year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
@@ -36,17 +37,24 @@ exports.getMangaByTags = async (req, res) => {
             query = `SELECT id, validChapters FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
         }
         let queryResult = await pool.query(query)
-        let mangaIds = queryResult.rows.map(q => `'${q.id}'`)
-        let titleQuery = `SELECT * FROM titles WHERE manga_id in (${mangaIds.join(',')})`
-        let titleQueryResult = await pool.query(titleQuery)
-        res.status(200).json({
-            'result': 'ok',
-            'mangas': queryResult.rows.map((q) => ({
-                'id': q.id,
-                'chapterId': q.validchapters[getRandomInt(0, q.validchapters.length)],
-                'titles': titleQueryResult.rows.filter(t => t.manga_id === q.id).map(t => t.title)
-            }))
-        })
+        if (queryResult.rows.length === 0) {
+            res.status(400).json({
+                'result': 'error',
+                'mangas': []
+            })
+        } else {
+            let mangaIds = queryResult.rows.map(q => `'${q.id}'`)
+            let titleQuery = `SELECT * FROM titles WHERE manga_id in (${mangaIds.join(',')})`
+            let titleQueryResult = await pool.query(titleQuery)
+            res.status(200).json({
+                'result': 'ok',
+                'mangas': queryResult.rows.map((q) => ({
+                    'id': q.id,
+                    'chapterId': q.validchapters[getRandomInt(0, q.validchapters.length)],
+                    'titles': titleQueryResult.rows.filter(t => t.manga_id === q.id).map(t => t.title)
+                }))
+            })
+        }
     } catch(e) {
         console.error(`[GET /manga/tags] ${e}`)
         res.status(500).json({
@@ -57,6 +65,61 @@ exports.getMangaByTags = async (req, res) => {
 }
 
 exports.getMangaByLists = async (req, res) => {
-    let { lists } = req.query
-    res.send(lists)
+    let { totalRounds, lists } = req.query
+    console.log(`[GET /titles/lists] totalRounds: ${totalRounds} | lists: ${!lists ? 'None' : lists.join(', ')}`)
+    if (!lists) {
+        res.status(400).json({
+            'result': 'error',
+            'mangas': []
+        })
+    } else {
+        let mangaIds = await getMangaIdsByLists(lists)
+        if (mangaIds.length === 0) {
+            res.status(400).json({
+                'result': 'error',
+                'mangas': []
+            })
+        } else {
+            let mangasToSend = []
+            let attempts = 0
+            while (mangasToSend.length < totalRounds && attempts < totalRounds * 2) {
+                try {
+                    let mangaId = mangaIds[getRandomInt(0, mangaIds.length)]
+                    let chapterId = await getRandomChapter(mangaId)
+                    mangasToSend.push({
+                        'id': mangaId,
+                        'chapterId': chapterId
+                    })
+                    attempts++
+                } catch {
+                    attempts++
+                }
+            }
+            if (mangasToSend.length > 0) {
+                try {
+                    let titlesGroupedByIds = await getTitlesByIds(mangasToSend.map(m => m.id))
+                    mangasToSend = mangasToSend.map(m => ({
+                        ...m,
+                        'titles': titlesGroupedByIds.filter(t => t.id === m.id)[0].titles
+                    }))
+                    res.status(200).json({
+                        'result': 'ok',
+                        'mangas': mangasToSend
+                    })
+                } catch(e) {
+                    console.error(e)
+                    res.status(500).json({
+                        'result': 'error',
+                        'mangas': []
+                    })
+                }
+            } else {
+                res.status(400).json({
+                    'result': 'error',
+                    'mangas': []
+                })
+            }
+        }
+    }
+
 }
