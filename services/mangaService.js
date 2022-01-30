@@ -32,9 +32,9 @@ exports.getMangaByTags = async (req, res) => {
         rating = rating ? rating : 0
         if (tags) {
             let tagsQuery = tags.filter(t => validTags.includes(t)).map(t => t.replace(/'/g, "''")).join(',')
-            query = `SELECT id, validChapters, title, altTitles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE '{${tagsQuery}}'::tag[] && tags.tags AND year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
+            query = `SELECT id, valid_chapters, title, alt_titles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE '{${tagsQuery}}'::tag[] && tags.tags AND year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
         } else {
-            query = `SELECT id, validChapters, title, altTitles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
+            query = `SELECT id, valid_chapters, title, alt_titles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
         }
         let queryResult = await pool.query(query)
         if (queryResult.rows.length === 0) {
@@ -47,8 +47,8 @@ exports.getMangaByTags = async (req, res) => {
                 'result': 'ok',
                 'mangas': queryResult.rows.map((q) => ({
                     'id': q.id,
-                    'chapterId': q.validchapters[getRandomInt(0, q.validchapters.length)],
-                    'titles': [ q.title, ...q.alttitles ]
+                    'chapterId': q.valid_chapters[getRandomInt(0, q.valid_chapters.length)],
+                    'titles': [ q.title, ...q.alt_titles ]
                 }))
             })
         }
@@ -118,5 +118,55 @@ exports.getMangaByLists = async (req, res) => {
             }
         }
     }
+}
 
+exports.getStatistics = async (req, res) => {
+    // returns most played, most correct, most incorrect
+    console.log(`[GET /manga/statistics]`)
+    try {
+        let query = `(SELECT id, title, cover, total_plays, times_correct, percent_correct FROM scores JOIN mangas ON scores.manga_id = mangas.id ORDER BY total_plays DESC LIMIT 3)
+                     UNION ALL
+                     (SELECT id, title, cover, total_plays, times_correct, percent_correct FROM scores JOIN mangas ON scores.manga_id = mangas.id ORDER BY percent_correct DESC LIMIT 3)
+                     UNION ALL
+                     (SELECT id, title, cover, total_plays, times_correct, percent_correct FROM scores JOIN mangas ON scores.manga_id = mangas.id ORDER BY percent_correct ASC LIMIT 3)`
+        let queryResult = await pool.query(query)
+        res.status(200).json({
+            'result': 'ok',
+            'statistics': [
+                queryResult.rows.slice(0,3),
+                queryResult.rows.slice(3,6),
+                queryResult.rows.slice(6,9)
+            ]
+        })
+    } catch {
+        res.status(500).json({
+            'result': 'error',
+            'statistics': []
+        })
+    }
+}
+
+exports.updateScore = async (req, res) => {
+    let { id, correct } = req.body
+    console.log(`[POST /manga/score}] id: ${id} | correct: ${correct}`)
+    if (!id || correct === undefined) {
+        res.status(400).json({
+            'result': 'error'
+        })
+    } else {
+        try {
+            let query = `INSERT INTO scores VALUES ('${id}', 1, ${correct ? 1 : 0}, ${correct ? 1 : 0}) ON CONFLICT (manga_id) DO UPDATE SET total_plays = scores.total_plays + 1, times_correct = scores.times_correct + excluded.times_correct,
+                                                                                                                                             percent_correct = (scores.times_correct + excluded.times_correct)::decimal/(scores.total_plays + 1)`
+            await pool.query(query)
+            res.status(200).json({
+                'result': 'ok'
+            })
+        } catch(e) {
+            console.error(e)
+            res.status(500).json({
+                'result': 'error'
+            })
+        }
+
+    }
 }

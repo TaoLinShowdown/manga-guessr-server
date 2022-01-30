@@ -30,9 +30,9 @@ function groupTitles (titles) {
 exports.getTitles = async (req, res) => {
     console.log('[GET /titles]')
     try {
-        let query = 'SELECT title, altTitles FROM mangas'
+        let query = 'SELECT title, alt_titles FROM mangas'
         let queryResult = await pool.query(query)
-        let titles = queryResult.rows.reduce((list, q) => list.concat([ q.title, ...q.alttitles ]), []).sort()
+        let titles = queryResult.rows.reduce((list, q) => list.concat([ q.title, ...q.alt_titles ]), []).sort()
         res.status(200).json({
             'result': 'ok',
             'titles': titles

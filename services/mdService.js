@@ -1,5 +1,12 @@
 const fetch = require('node-fetch')
 
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/random#getting_a_random_integer_between_two_values
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min) + min); //The maximum is exclusive and the minimum is inclusive
+}
+
 exports.getMangaIdsByLists = async (listsFilter) => {
     let mangaRefs = new Set()
     for (const list of listsFilter) {
@@ -76,4 +83,43 @@ exports.getAllTitlesByIds = async (mangaIds, all) => {
         }
     }
     return listTitles
+}
+
+exports.getPageLink = async (req, res) => {
+    let { chapterId } = req.query
+    console.log(`[GET /manga/pagelink] ${chapterId}`)
+    try {
+        let athomeUrlResponse = await fetch(`https://api.mangadex.org/at-home/server/${chapterId}`)
+        let athomeUrlData = await athomeUrlResponse.json()
+        let athomeUrl = ''
+        let hash = ''
+        let pageid = ''
+        // in case of being ratelimited
+        if (athomeUrlData.result === 'error' && athomeUrlData.errors[0].status === 429) {
+            let retry = athomeUrlResponse.headers.get('retry-after')
+            console.log('[GET /pagelink] RATE LIMITED')
+            res.status(429).json({
+                result: 'error',
+                retry: parseInt(retry)
+            })
+        } else {
+            athomeUrl = athomeUrlData.baseUrl
+            hash = athomeUrlData.chapter.hash
+            if (athomeUrlData.chapter.dataSaver.length > 2) {
+                pageid = athomeUrlData.chapter.dataSaver[getRandomInt(1, athomeUrlData.chapter.dataSaver.length - 1)]
+            } else {
+                pageid = athomeUrlData.chapter.dataSaver[getRandomInt(0, athomeUrlData.chapter.dataSaver.length)]
+            }
+            res.status(200).json({
+                result: 'ok',
+                page: `${athomeUrl}/data-saver/${hash}/${pageid}`
+            })
+        }
+    } catch(e) {
+        console.error(e)
+        res.status(500).json({
+            result: 'error',
+            page: ''
+        })
+    }
 }
