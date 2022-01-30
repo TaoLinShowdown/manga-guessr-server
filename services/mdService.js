@@ -56,7 +56,7 @@ exports.getTitlesByIds = async (mangaIds) => {
 }
 
 exports.getAllTitlesByIds = async (mangaIds) => {
-    let listTitles = []
+    let listTitles = {}
     let i, temp, chunk = 100
     for (i = 0; i < mangaIds.length; i += chunk) {
         temp = mangaIds.slice(i, i + chunk)
@@ -71,7 +71,7 @@ exports.getAllTitlesByIds = async (mangaIds) => {
                 .filter(t => /^[a-zA-Z0-9 !#$%&'()*+,-./:;<=>?@\[\]^_`|~¥°±²³½“”†•…₂←↑→↓⇆∀∅∇√△○●◯★☆♀♂♠♡♥♪♭❤￮]+$/.test(t)) // if it got funny letters not in this list, don't include
                 .slice(0, 2)                             // only first 3 values
             titles = titles.concat(altTitles)
-            listTitles = listTitles.concat(titles)
+            listTitles[m.id] = titles
         }
     }
     return listTitles

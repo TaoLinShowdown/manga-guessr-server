@@ -15,14 +15,26 @@ const validTags = ['Shounen','Shoujo','Seinen','Josei','Action','Adventure','Ali
                   ,'School Life','Sci-Fi','Slice of Life','Sports','Superhero','Supernatural','Survival','Thriller'
                   ,'Time Travel','Tragedy','Vampires','Video Games','Villainess','Virtual Reality','Zombies']
 
+function groupTitles (titles) {
+    let list = {}
+    for (let t of titles) {
+        if (t.id in list) {
+            list[t.id].push(t.title)
+        } else {
+            list[t.id] = [ t.title ]
+        }
+    }
+    return list
+}
+
 exports.getTitles = async (req, res) => {
     console.log('[GET /titles]')
     try {
-        let query = 'SELECT manga_id as id, title FROM titles ORDER BY title'
+        let query = 'SELECT title FROM titles ORDER BY title'
         let queryResult = await pool.query(query)
         res.status(200).json({
             'result': 'ok',
-            'titles': queryResult.rows
+            'titles': queryResult.rows.map(t => t.title)
         })
     } catch (e) {
         res.status(500).json({
@@ -45,7 +57,7 @@ exports.getTitlesByTags = async (req, res) => {
         let queryResult = await pool.query(query)
         res.status(200).json({
             'result': 'ok',
-            'titles': queryResult.rows
+            'titles': groupTitles(queryResult.rows)
         })
     } catch (e) {
         res.status(500).json({
@@ -57,12 +69,12 @@ exports.getTitlesByTags = async (req, res) => {
 
 exports.getTitlesByLists = async (req, res) => {
     async function sendAllTitles() {
-        let query = 'SELECT title FROM titles'
+        let query = 'SELECT manga_id as id, title FROM titles'
         try {
             let queryResult = await pool.query(query)
             res.status(200).json({
                 'result': 'ok',
-                'titles': queryResult.rows.map(i => i.title)
+                'titles': groupTitles(queryResult.rows)
             })
         } catch (e) {
             res.status(500).json({
