@@ -44,8 +44,7 @@ exports.getMangaByTags = async (req, res) => {
                      ORDER BY RANDOM() LIMIT ${totalRounds}`
         } else {
             query = `SELECT id, valid_chapters, title, alt_titles FROM mangas JOIN tags ON mangas.id = tags.manga_id 
-                     WHERE '{${tagsQuery}}'::tag[] && tags.tags 
-                     AND year >= ${minYear}
+                     WHERE year >= ${minYear}
                      AND year <= ${maxYear} 
                      AND rating >= ${minRating}
                      AND rating <= ${maxRating} 
