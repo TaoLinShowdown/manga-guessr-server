@@ -29,8 +29,8 @@ exports.getMangaByTags = async (req, res) => {
         let query
         minYear = minYear ? minYear : 0
         maxYear = maxYear ? maxYear : 9999
-        minRating = minRating ? minYear : 0
-        maxRating = maxRating ? maxYear : 99
+        minRating = minRating ? minRating : 0
+        maxRating = maxRating ? maxRating : 99
         minFollows = minFollows ? minFollows : 0
         if (tags) {
             let tagsQuery = tags.filter(t => validTags.includes(t)).map(t => t.replace(/'/g, "''")).join(',')
@@ -43,7 +43,7 @@ exports.getMangaByTags = async (req, res) => {
                      AND follows >= ${minFollows} 
                      ORDER BY RANDOM() LIMIT ${totalRounds}`
         } else {
-            query = `SELECT id, valid_chapters, title, alt_titles FROM mangas JOIN tags ON mangas.id = tags.manga_id 
+            query = `SELECT id, valid_chapters, title, alt_titles FROM mangas
                      WHERE year >= ${minYear}
                      AND year <= ${maxYear} 
                      AND rating >= ${minRating}
