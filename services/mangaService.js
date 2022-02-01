@@ -23,13 +23,15 @@ function getRandomInt(min, max) {
 }
                 
 exports.getMangaByTags = async (req, res) => {
-    let { totalRounds, tags, year, follows, rating } = req.query
+    let { totalRounds, tags, minYear, maxYear, minRating, maxRating, minFollows } = req.query
     console.log(`[GET /manga/tags] total rounds: ${totalRounds} | tags: ${!tags ? 'None' : tags.join(', ')}`)
     try {
         let query
-        year = year ? year : 0
-        follows = follows ? follows : 0
-        rating = rating ? rating : 0
+        minYear = minYear ? minYear : 0
+        maxYear = maxYear ? maxYear : 9999
+        minRating = minRating ? minYear : 0
+        maxRating = maxRating ? maxYear : 99
+        minFollows = minFollows ? minFollows : 0
         if (tags) {
             let tagsQuery = tags.filter(t => validTags.includes(t)).map(t => t.replace(/'/g, "''")).join(',')
             query = `SELECT id, valid_chapters, title, alt_titles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE '{${tagsQuery}}'::tag[] && tags.tags AND year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
