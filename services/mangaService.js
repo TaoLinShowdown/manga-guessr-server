@@ -147,11 +147,7 @@ exports.getStatistics = async (req, res) => {
         let queryResult = await pool.query(query)
         res.status(200).json({
             'result': 'ok',
-            'statistics': [
-                queryResult.rows.slice(0,3),
-                queryResult.rows.slice(3,6),
-                queryResult.rows.slice(6,9)
-            ]
+            'statistics': queryResult.rows
         })
     } catch {
         res.status(500).json({
@@ -163,7 +159,7 @@ exports.getStatistics = async (req, res) => {
 
 exports.updateScore = async (req, res) => {
     let { id, correct } = req.body
-    console.log(`[POST /manga/score}] id: ${id} | correct: ${correct}`)
+    console.log(`[POST /manga/score] id: ${id} | correct: ${correct}`)
     if (!id || correct === undefined) {
         res.status(400).json({
             'result': 'error'
