@@ -43,7 +43,14 @@ exports.getMangaByTags = async (req, res) => {
                      AND follows >= ${minFollows} 
                      ORDER BY RANDOM() LIMIT ${totalRounds}`
         } else {
-            query = `SELECT id, valid_chapters, title, alt_titles FROM mangas JOIN tags ON mangas.id = tags.manga_id WHERE year >= ${year} AND follows >= ${follows} AND rating >= ${rating} ORDER BY RANDOM() LIMIT ${totalRounds}`
+            query = `SELECT id, valid_chapters, title, alt_titles FROM mangas JOIN tags ON mangas.id = tags.manga_id 
+                     WHERE '{${tagsQuery}}'::tag[] && tags.tags 
+                     AND year >= ${minYear}
+                     AND year <= ${maxYear} 
+                     AND rating >= ${minRating}
+                     AND rating <= ${maxRating} 
+                     AND follows >= ${minFollows} 
+                     ORDER BY RANDOM() LIMIT ${totalRounds}`
         }
         let queryResult = await pool.query(query)
         if (queryResult.rows.length === 0) {
