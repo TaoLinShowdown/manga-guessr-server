@@ -10,11 +10,15 @@ function getRandomInt(min, max) {
 exports.getMangaIdsByLists = async (listsFilter) => {
     let mangaRefs = new Set()
     for (const list of listsFilter) {
-        let listResponse = await fetch(`https://api.mangadex.org/list/${list}`)
-        let listData = await listResponse.json()
-        if (listData.result === "ok") {
-            let temp = listData.data.relationships.filter(r => r.type === 'manga').map(m => m.id)
-            for (const n of temp) mangaRefs.add(n)
+        try {
+            let listResponse = await fetch(`https://api.mangadex.org/list/${list}`)
+            let listData = await listResponse.json()
+            if (listData.result === "ok") {
+                let temp = listData.data.relationships.filter(r => r.type === 'manga').map(m => m.id)
+                for (const n of temp) mangaRefs.add(n)
+            }
+        } catch {
+            console.error(`failed for this list: ${list}`)
         }
     }
     return Array.from(mangaRefs)
